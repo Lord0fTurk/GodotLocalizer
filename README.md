@@ -6,7 +6,7 @@
 
 ### Translate any exported Godot game — without touching a single game file.
 
-Drop in a game, pick your language, press **Translate**, press **Play**.
+Drop in a game, pick your language, press **Translate**, then **Launch Game**.
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg?style=for-the-badge)](LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)
@@ -48,7 +48,7 @@ It opens the game's `.pck` package (or the `.exe` it is embedded in), finds ever
 
 | | |
 |---|---|
-| 🛡️ **Non-destructive** | Patches are applied as a PCK overlay + `override.cfg`. The game's files are never modified. *Remove patch* restores the vanilla state instantly. |
+| 🛡️ **Non-destructive** | Patches are applied as a PCK overlay + `override.cfg`. The game's files are never modified. *Revert Game to Vanilla* (Toolbox) restores the original state instantly. |
 | 🧠 **Asks only when needed** | Pre-flight analysis inspects the game first. You're prompted for an encryption key, extra JSON fields or a decompiler **only if that game actually needs it**. |
 | 🔎 **Finds text everywhere** | Translation tables, scenes, resources, GDScript — even **compiled** scripts and **binary** scenes. |
 | ✅ **Syntax Guard** | `[color=red]`, `[wave amp=…]`, `%05d`, `{name}`, `[damage]` and other markup/variables are protected, so translated text never breaks the game. |
@@ -178,14 +178,14 @@ Optional extras:
 ## 🎮 Typical scenarios
 
 ### 1 · "I just want to play this game in my language"
-Drop the game folder (or its `.exe` / `.pck`) onto the window → choose your language → **Translate** → **Play**.
-Nothing in the game is modified. *Remove patch* (Toolbox) undoes it.
+Drop the game folder (or its `.exe` / `.pck`) onto the window → choose your language → **Translate** → **Launch Game**.
+Nothing in the game is modified. *Revert Game to Vanilla* (Toolbox) undoes it.
 
 ### 2 · "I want a high-quality translation"
 Translate, then open the **Review editor**. Fix rows by hand, or **Export sheet (CSV)** for a translator working in Excel/LibreOffice and **Import sheet** the result (UTF-8 with BOM, `;` / tab / `,` separators and formula-looking cells are handled). **Save to game** rebuilds the patch from your edits.
 
 ### 3 · "I want to share my translation"
-**Export patch package** writes a small `.zip` — *patch only, no game files* — with `install` / `uninstall` scripts for Windows and Linux / Steam Deck. Recipients can run the script or use **Install a patch package…** in the app. Existing `override.cfg` settings are merged, and a warning appears if their game version differs.
+**Export Standalone Patch Package** writes a small `.zip` — *patch only, no game files* — with `install` / `uninstall` scripts for Windows and Linux / Steam Deck. Recipients can run the script or use **Install a patch package…** in the app. Existing `override.cfg` settings are merged, and a warning appears if their game version differs.
 
 ### 4 · "The game got updated"
 The dashboard tells you. Press **Translate** again — cached translations are reused, so only new strings cost anything.
