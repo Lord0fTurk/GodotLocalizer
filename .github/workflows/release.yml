@@ -1,14 +1,26 @@
 name: Release
 
+# Pushing a version tag (0.1.0 or v0.1.0) builds Windows and Linux and attaches the files to the GitHub
+# release of that tag. Run manually (Actions -> Release -> Run workflow) to only build the artifacts, or fill in
+# "release_tag" to attach the builds to a release that already exists (for example after fixing the workflow).
 on:
   push:
     tags:
       - "[0-9]*"
       - "v[0-9]*"
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing release tag to attach the builds to (empty = only build artifacts)"
+        required: false
+        default: ""
 
 permissions:
   contents: write
+
+env:
+  # The tag the builds belong to: the pushed tag, or the one typed into the manual run (empty = no release).
+  RELEASE_TAG: ${{ inputs.release_tag || (startsWith(github.ref, 'refs/tags/') && github.ref_name) || '' }}
 
 jobs:
   build-windows:
@@ -25,13 +37,13 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Tag must match src/version.py
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Read the version and check the tag
         shell: bash
         run: |
           VERSION=$(python -c "import re;print(re.search(r'__version__ = \"(.+?)\"', open('src/version.py').read()).group(1))")
-          if [ "${GITHUB_REF_NAME#v}" != "${VERSION}" ]; then
-            echo "Tag ${GITHUB_REF_NAME} does not match src/version.py (${VERSION}); use ${VERSION} or v${VERSION}"; exit 1
+          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
+          if [ -n "${RELEASE_TAG}" ] && [ "${RELEASE_TAG#v}" != "${VERSION}" ]; then
+            echo "Tag ${RELEASE_TAG} does not match src/version.py (${VERSION}); use ${VERSION} or v${VERSION}"; exit 1
           fi
 
       - name: Install dependencies
@@ -56,8 +68,7 @@ jobs:
       - name: Package standalone ZIP
         shell: powershell
         run: |
-          $Version = if ($env:GITHUB_REF_NAME) { $env:GITHUB_REF_NAME -replace "^v", "" } else { "dev" }
-          $ZipName = "GodotLocalizer-${Version}-windows-x64.zip"
+          $ZipName = "GodotLocalizer-${env:VERSION}-windows-x64.zip"
           Compress-Archive -Path "dist\GodotLocalizer\*" -DestinationPath $ZipName -CompressionLevel Optimal
           echo "ZIP_PATH=$ZipName" >> $env:GITHUB_ENV
 
@@ -68,11 +79,11 @@ jobs:
           path: ${{ env.ZIP_PATH }}
 
       - name: Attach to GitHub release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: env.RELEASE_TAG != ''
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.RELEASE_TAG }}
           files: ${{ env.ZIP_PATH }}
-          prerelease: ${{ contains(github.ref_name, '-') || startsWith(github.ref_name, 'v0.') || startsWith(github.ref_name, '0.') }}
 
   build-linux:
     # Experimental. Built on an older Ubuntu so the binary runs on current distributions and SteamOS
@@ -90,6 +101,14 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+
+      - name: Read the version and check the tag
+        run: |
+          VERSION=$(python -c "import re;print(re.search(r'__version__ = \"(.+?)\"', open('src/version.py').read()).group(1))")
+          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
+          if [ -n "${RELEASE_TAG}" ] && [ "${RELEASE_TAG#v}" != "${VERSION}" ]; then
+            echo "Tag ${RELEASE_TAG} does not match src/version.py (${VERSION}); use ${VERSION} or v${VERSION}"; exit 1
+          fi
 
       - name: System libraries for Qt and fonts
         run: |
@@ -115,8 +134,7 @@ jobs:
 
       - name: Package tar.gz (keeps the executable bit)
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"; VERSION="${VERSION:-dev}"
-          TAR_NAME="GodotLocalizer-${VERSION//\//-}-linux-x64.tar.gz"
+          TAR_NAME="GodotLocalizer-${VERSION}-linux-x64.tar.gz"
           tar -czf "$TAR_NAME" -C dist GodotLocalizer
           echo "TAR_PATH=$TAR_NAME" >> "$GITHUB_ENV"
 
@@ -127,8 +145,8 @@ jobs:
           path: ${{ env.TAR_PATH }}
 
       - name: Attach to GitHub release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: env.RELEASE_TAG != ''
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.RELEASE_TAG }}
           files: ${{ env.TAR_PATH }}
-          prerelease: ${{ contains(github.ref_name, '-') || startsWith(github.ref_name, 'v0.') || startsWith(github.ref_name, '0.') }}
