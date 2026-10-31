@@ -3,7 +3,8 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
+      - "[0-9]*"
+      - "v[0-9]*"
   workflow_dispatch:
 
 permissions:
@@ -29,8 +30,8 @@ jobs:
         shell: bash
         run: |
           VERSION=$(python -c "import re;print(re.search(r'__version__ = \"(.+?)\"', open('src/version.py').read()).group(1))")
-          if [ "${GITHUB_REF_NAME}" != "v${VERSION}" ]; then
-            echo "Tag ${GITHUB_REF_NAME} does not match src/version.py (${VERSION})"; exit 1
+          if [ "${GITHUB_REF_NAME#v}" != "${VERSION}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match src/version.py (${VERSION}); use ${VERSION} or v${VERSION}"; exit 1
           fi
 
       - name: Install dependencies
@@ -55,7 +56,7 @@ jobs:
       - name: Package standalone ZIP
         shell: powershell
         run: |
-          $Version = if ($env:GITHUB_REF_NAME) { $env:GITHUB_REF_NAME } else { "dev" }
+          $Version = if ($env:GITHUB_REF_NAME) { $env:GITHUB_REF_NAME -replace "^v", "" } else { "dev" }
           $ZipName = "GodotLocalizer-${Version}-windows-x64.zip"
           Compress-Archive -Path "dist\GodotLocalizer\*" -DestinationPath $ZipName -CompressionLevel Optimal
           echo "ZIP_PATH=$ZipName" >> $env:GITHUB_ENV
@@ -71,8 +72,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ env.ZIP_PATH }}
-          generate_release_notes: true
-          prerelease: ${{ contains(github.ref_name, '-') || startsWith(github.ref_name, 'v0.') }}
+          prerelease: ${{ contains(github.ref_name, '-') || startsWith(github.ref_name, 'v0.') || startsWith(github.ref_name, '0.') }}
 
   build-linux:
     # Experimental. Built on an older Ubuntu so the binary runs on current distributions and SteamOS
@@ -115,7 +115,7 @@ jobs:
 
       - name: Package tar.gz (keeps the executable bit)
         run: |
-          VERSION="${GITHUB_REF_NAME:-dev}"
+          VERSION="${GITHUB_REF_NAME#v}"; VERSION="${VERSION:-dev}"
           TAR_NAME="GodotLocalizer-${VERSION//\//-}-linux-x64.tar.gz"
           tar -czf "$TAR_NAME" -C dist GodotLocalizer
           echo "TAR_PATH=$TAR_NAME" >> "$GITHUB_ENV"
@@ -131,5 +131,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ env.TAR_PATH }}
-          generate_release_notes: true
-          prerelease: ${{ contains(github.ref_name, '-') || startsWith(github.ref_name, 'v0.') }}
+          prerelease: ${{ contains(github.ref_name, '-') || startsWith(github.ref_name, 'v0.') || startsWith(github.ref_name, '0.') }}
