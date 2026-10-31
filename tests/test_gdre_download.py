@@ -80,7 +80,7 @@ class TestInstall(unittest.TestCase):
             )
             self.assertTrue(exe.is_file())
             self.assertEqual(progress[-1], 1.0)
-            return exe.relative_to(Path(tmp))
+            return exe.resolve().relative_to(Path(tmp).resolve())  # CI temp dirs use 8.3 short names
 
     def test_installs_and_finds_the_executable(self) -> None:
         exe = self.install(make_zip({"gdre_tools.exe": b"MZ", "gdre_tools.pck": b"x"}))
