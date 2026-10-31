@@ -10,7 +10,12 @@ import os
 import struct
 from typing import BinaryIO
 
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
+
+try:  # newer cryptography releases moved CFB (Godot's encryption mode) to the "decrepit" namespace
+    from cryptography.hazmat.decrepit.ciphers.modes import CFB
+except ImportError:
+    from cryptography.hazmat.primitives.ciphers.modes import CFB
 
 KEY_SIZE = 32
 BLOCK_SIZE = 16
@@ -63,7 +68,7 @@ def encrypt_blob(plaintext: bytes, key: bytes, iv: bytes | None = None) -> bytes
     """Encrypts ``plaintext`` into Godot's blob format."""
     iv = iv if iv is not None else os.urandom(BLOCK_SIZE)
     padded = plaintext + b"\x00" * (padded_length(len(plaintext)) - len(plaintext))
-    encryptor = Cipher(algorithms.AES(key), modes.CFB(iv)).encryptor()
+    encryptor = Cipher(algorithms.AES(key), CFB(iv)).encryptor()
     ciphertext = encryptor.update(padded) + encryptor.finalize()
     return hashlib.md5(plaintext).digest() + struct.pack("<Q", len(plaintext)) + iv + ciphertext
 
@@ -79,7 +84,7 @@ def decrypt_blob(stream: BinaryIO, key: bytes) -> bytes:
     ciphertext = stream.read(padded_length(length))
     if len(ciphertext) < padded_length(length):
         raise PCKEncryptionError("Truncated encrypted block.")
-    decryptor = Cipher(algorithms.AES(key), modes.CFB(iv)).decryptor()
+    decryptor = Cipher(algorithms.AES(key), CFB(iv)).decryptor()
     plaintext = (decryptor.update(ciphertext) + decryptor.finalize())[:length]
     if hashlib.md5(plaintext).digest() != md5:
         raise PCKWrongKeyError("Decryption failed: the encryption key is wrong or the pack is corrupt.")
