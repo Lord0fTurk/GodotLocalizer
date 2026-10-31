@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "godotlocalizer"
+dynamic = ["version"]
+description = "Automated localization and non-destructive patching for exported Godot 3.x / 4.x games"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "GPL-3.0-or-later" }
+dependencies = [
+    "PyQt6>=6.10.0",
+    "cryptography>=46.0.0",
+    "fonttools>=4.62.0",
+]
+
+[project.optional-dependencies]
+rtl = ["arabic-reshaper", "python-bidi"]
+secrets = ["keyring>=25.0"]
+dev = ["pytest>=9.0.0", "ruff>=0.16.7"]
+
+[tool.setuptools.dynamic]
+version = { attr = "src.version.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["src*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "RUF"]
+ignore = [
+    "BLE001",  # Blind exception catching is needed in UI / network fault-tolerant handlers
+    "TRY401",  # Redundant exception in logging.exception
+    "RUF001",  # Ambiguous unicode characters in strings (necessary for i18n & glyph tests)
+    "RUF002",  # Ambiguous unicode characters in docstrings
+    "RUF003",  # Ambiguous unicode characters in comments
+    "E501",    # Line length handled gracefully
+    "B905",    # zip() strict parameter
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]

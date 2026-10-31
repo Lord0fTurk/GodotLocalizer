@@ -1,0 +1,135 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Tag must match src/version.py
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          VERSION=$(python -c "import re;print(re.search(r'__version__ = \"(.+?)\"', open('src/version.py').read()).group(1))")
+          if [ "${GITHUB_REF_NAME}" != "v${VERSION}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match src/version.py (${VERSION})"; exit 1
+          fi
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller
+
+      - name: Lint and test
+        run: |
+          python -m ruff check .
+          python -m pytest -q
+
+      - name: Build standalone executable (runs the frozen self-check)
+        run: python build.py
+
+      - name: Start-up smoke test of the frozen program
+        shell: bash
+        env:
+          GODOTLOCALIZER_SMOKE_TEST: "1"
+        run: timeout 90 ./dist/GodotLocalizer/GodotLocalizer.exe
+
+      - name: Package standalone ZIP
+        shell: powershell
+        run: |
+          $Version = if ($env:GITHUB_REF_NAME) { $env:GITHUB_REF_NAME } else { "dev" }
+          $ZipName = "GodotLocalizer-${Version}-windows-x64.zip"
+          Compress-Archive -Path "dist\GodotLocalizer\*" -DestinationPath $ZipName -CompressionLevel Optimal
+          echo "ZIP_PATH=$ZipName" >> $env:GITHUB_ENV
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GodotLocalizer-windows-x64
+          path: ${{ env.ZIP_PATH }}
+
+      - name: Attach to GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ZIP_PATH }}
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') || startsWith(github.ref_name, 'v0.') }}
+
+  build-linux:
+    # Experimental. Built on an older Ubuntu so the binary runs on current distributions and SteamOS
+    # (glibc is forward-compatible only). Nothing is attached unless the frozen program passes its
+    # own self-check and an offscreen start-up.
+    runs-on: ubuntu-22.04
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: System libraries for Qt and fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libdbus-1-3 libfontconfig1 libglib2.0-0 \
+            libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
+            libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-xkb1 \
+            fonts-dejavu-core fonts-liberation fontconfig
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller
+
+      - name: Build standalone executable (runs the frozen self-check)
+        run: python build.py
+
+      - name: Start-up smoke test of the frozen program
+        env:
+          GODOTLOCALIZER_SMOKE_TEST: "1"
+        run: timeout 90 ./dist/GodotLocalizer/GodotLocalizer
+
+      - name: Package tar.gz (keeps the executable bit)
+        run: |
+          VERSION="${GITHUB_REF_NAME:-dev}"
+          TAR_NAME="GodotLocalizer-${VERSION//\//-}-linux-x64.tar.gz"
+          tar -czf "$TAR_NAME" -C dist GodotLocalizer
+          echo "TAR_PATH=$TAR_NAME" >> "$GITHUB_ENV"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GodotLocalizer-linux-x64
+          path: ${{ env.TAR_PATH }}
+
+      - name: Attach to GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.TAR_PATH }}
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') || startsWith(github.ref_name, 'v0.') }}

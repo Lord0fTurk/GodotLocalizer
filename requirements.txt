@@ -1,0 +1,21 @@
+# Core GUI Framework
+PyQt6>=6.10.0
+PyQt6-Qt6>=6.10.0
+
+# Cryptography (for encrypted PCK archives and signatures)
+cryptography>=46.0.0
+
+
+# Typography and font glyph analysis
+fonttools>=4.62.0
+
+# Testing & Quality Assurance
+pytest>=9.0.0
+ruff>=0.16.7
+
+# Optional: right-to-left pre-shaping for Godot 3 targets (Arabic/Persian/Hebrew)
+# arabic-reshaper
+# python-bidi
+
+# Optional: store API keys and the PCK key in the OS credential store instead of config.json
+# keyring
