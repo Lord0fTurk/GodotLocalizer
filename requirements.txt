@@ -9,6 +9,16 @@ cryptography>=46.0.0
 # Typography and font glyph analysis
 fonttools>=4.62.0
 
+# HTTP client of the web translation engines (Google, Bing, DeepL, LibreTranslate)
+requests>=2.32.0
+
+# Zstandard: compressed resources and compiled scripts of Godot 4.3+ (built into Python 3.14+)
+zstandard>=0.23.0; python_version < "3.14"
+
+# AI translation engines (Gemini, OpenAI, DeepSeek, local LLM)
+openai>=1.50.0
+google-genai>=1.0.0
+
 # Testing & Quality Assurance
 pytest>=9.0.0
 ruff>=0.16.7

@@ -6,10 +6,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
 
 from src.core.pck.constants import PACK_FILE_ENCRYPTED, PCK_MAGIC
 from src.core.pck.crypto import (
+    CFB,
     PCKEncryptionError,
     PCKKeyRequiredError,
     PCKWrongKeyError,
@@ -28,7 +29,7 @@ IV = bytes(range(16))
 def spec_blob(plaintext: bytes, key: bytes) -> bytes:
     """Godot FileAccessEncrypted (no magic): md5 | u64 length | iv | AES-256-CFB(zero padded)."""
     padded = plaintext + b"\x00" * (-len(plaintext) % 16)
-    enc = Cipher(algorithms.AES(key), modes.CFB(IV)).encryptor()
+    enc = Cipher(algorithms.AES(key), CFB(IV)).encryptor()
     return hashlib.md5(plaintext).digest() + struct.pack("<Q", len(plaintext)) + IV + enc.update(padded) + enc.finalize()
 
 
