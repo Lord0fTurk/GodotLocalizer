@@ -27,12 +27,19 @@ def godot_locale(code: str) -> str:
 
 
 def build_translations_payload(
-    locale: str, messages: dict[str, str], optimized: list[dict[str, object]] | None = None
+    locale: str,
+    messages: dict[str, str],
+    optimized: list[dict[str, object]] | None = None,
+    extras: dict[str, list[list[object]]] | None = None,
 ) -> bytes:
-    """Serializes the runtime translation table that the bootstrap script registers."""
+    """Serializes the runtime translation table that the bootstrap script registers.
+
+    ``extras`` holds the ``contextual`` and ``plurals`` rows of ``pipeline.harvest.build_runtime_extras``.
+    """
     payload: dict[str, object] = {"locale": godot_locale(locale), "messages": messages}
     if optimized:
         payload["optimized"] = optimized
+    payload.update(extras or {})
     return json.dumps(payload, ensure_ascii=False).encode("utf-8")
 
 
@@ -108,6 +115,12 @@ func _install_translations() -> void:
     var messages: Dictionary = data.get("messages", {{}})
     for key in messages:
         table.add_message(key, messages[key])
+    # tr(text, context) and tr_n(): messages are looked up by context, plurals by the locale's plural rule.
+    for item in data.get("contextual", []):
+        table.add_message(item[1], item[2], item[0])
+    if table.has_method("add_plural_message"):
+        for item in data.get("plurals", []):
+            table.add_plural_message(item[1], PackedStringArray(item[2]), item[0])
     TranslationServer.add_translation(table)
     for item in data.get("optimized", []):
         var packed := OptimizedTranslation.new()
@@ -183,6 +196,10 @@ func _install_translations():
     var messages = data.get("messages", {{}})
     for key in messages:
         table.add_message(key, messages[key])
+    # Godot 3 has no message contexts: a context-bound text still localizes the plain lookup of the same text.
+    for item in data.get("contextual", []):
+        if not messages.has(item[1]):
+            table.add_message(item[1], item[2])
     TranslationServer.add_translation(table)
     for item in data.get("optimized", []):
         var packed = PHashTranslation.new()

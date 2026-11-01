@@ -42,6 +42,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "max_chars_per_request": 5000,
     "use_multi_endpoint": True,
     "lingva_fallback": True,
+    "browser_impersonation": True,
     "aggressive_retry": False,
     "proxy_enabled": False,
     "proxy_list": "",

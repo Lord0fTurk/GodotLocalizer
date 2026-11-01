@@ -21,14 +21,13 @@ from dataclasses import dataclass, field
 from src.core.binary.gdc import is_compiled_script
 from src.core.pck.reader import PCKReader
 from src.core.pipeline.harvest import KIND_D1_JSON, KIND_JSON, classify
+from src.harvesters.prose import looks_like_prose, looks_like_sentence
 from src.parsers.dialogic import DialogicParser
 
 _MAX_JSON_BYTES = 8 * 1024 * 1024
 _MAX_WALK_DEPTH = 24
 _MAX_DISTINCT = 300
 _MAX_PAIR_KEYS = 6
-_WORD_RE = re.compile(r"[^\W\d_]{2,}", re.UNICODE)
-_IDENTIFIER_RE = re.compile(r"^[\w./:\\-]+$")
 _ENGLISH_WORDS = frozenset(
     "the and of to a in is you that it for on with as i he she they we are was this be at have not but your my "
     "his her them there will would can what when so if or an by from do me".split()
@@ -71,16 +70,6 @@ class _KeyStats:
 
     def sample(self) -> str:
         return next(iter(self.values), "")
-
-
-def looks_like_prose(value: str) -> bool:
-    """Two or more words, mostly letters, and not an identifier, path or number list."""
-    text = value.strip()
-    if len(text) < 6 or text.startswith(("res://", "user://", "http")) or _IDENTIFIER_RE.match(text):
-        return False
-    words = _WORD_RE.findall(text)
-    letters = sum(ch.isalpha() for ch in text)
-    return len(words) >= 2 and letters / len(text) >= 0.6
 
 
 def english_score(values: list[str]) -> float:
@@ -183,6 +172,66 @@ def find_json_key_candidates(
     }
     _resolve_pairs(found, stats, pairs)
     return sorted(found.values(), key=lambda c: -c.count)
+
+
+@dataclass(frozen=True, slots=True)
+class UnscannedGroup:
+    """Files of one extension that the harvest does not read although they hold sentences."""
+
+    extension: str
+    files: int
+    sample_path: str
+    sample_text: str
+
+
+_ASSET_EXTENSIONS = frozenset({
+    ".png", ".jpg", ".jpeg", ".webp", ".svg", ".bmp", ".tga", ".exr", ".hdr", ".ctex", ".stex", ".dds", ".ktx",
+    ".ogg", ".wav", ".mp3", ".opus", ".oggstr", ".sample", ".oggvorbisstr", ".mp3str", ".webm", ".ogv", ".mp4",
+    ".ttf", ".otf", ".woff", ".woff2", ".fontdata", ".fnt", ".glb", ".gltf", ".obj", ".mesh", ".fbx", ".dae",
+    ".import", ".remap", ".md5", ".gdshader", ".gdshaderinc", ".shader", ".dll", ".so", ".dylib", ".exe", ".pdb",
+    ".gd", ".gdc", ".tscn", ".scn", ".tres", ".res", ".translation", ".csv", ".po", ".json", ".dtl", ".dialogue",
+    ".txt", ".yaml", ".yml", ".cfg", ".ini", ".binary", ".godot", ".uid", ".atlastex", ".bin",
+})
+_UNSCANNED_SAMPLE_BYTES = 1024 * 1024
+_MAX_SAMPLES_PER_EXTENSION = 5
+
+
+def _first_sentence(raw: bytes) -> str:
+    """First sentence-like line of a UTF-8 text blob, or '' for binary data."""
+    if b"\x00" in raw[:4096]:
+        return ""
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return ""
+    return next((line.strip() for line in text.splitlines() if looks_like_sentence(line)), "")
+
+
+def find_unscanned_text_files(reader: PCKReader) -> list[UnscannedGroup]:
+    """Text files in formats the harvest does not know (``.md``, ``.dat``, ``.lang``, ...), grouped by extension.
+
+    Shown by ``inspect`` so a game that keeps its text somewhere unexpected is spotted before anyone has
+    to report missing lines. Plugin folders and engine caches are ignored.
+    """
+    sampled: dict[str, int] = defaultdict(int)
+    hits: dict[str, tuple[str, str]] = {}
+    counts: dict[str, int] = defaultdict(int)
+    for res_path, entry in reader.entries.items():
+        extension = "." + res_path.rsplit(".", 1)[-1].lower() if "." in res_path.rsplit("/", 1)[-1] else ""
+        if extension in _ASSET_EXTENSIONS or res_path.startswith("res://addons/") or "/.godot/" in res_path:
+            continue
+        if entry.size == 0 or entry.size > _UNSCANNED_SAMPLE_BYTES or classify(res_path) is not None:
+            continue
+        counts[extension] += 1
+        if extension in hits or sampled[extension] >= _MAX_SAMPLES_PER_EXTENSION:
+            continue
+        sampled[extension] += 1
+        raw = reader.read_file_bytes(res_path)
+        sentence = _first_sentence(raw) if raw else ""
+        if sentence:
+            hits[extension] = (res_path, sentence)
+    found = [UnscannedGroup(ext or "(none)", counts[ext], path, text) for ext, (path, text) in hits.items()]
+    return sorted(found, key=lambda g: -g.files)
 
 
 def count_unreadable_scripts(reader: PCKReader) -> int:

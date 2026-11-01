@@ -266,6 +266,8 @@
     "multi_endpoint_desc": "将负载分散到 13 个 Google 域名；关闭时只使用 translate.googleapis.com。",
     "lingva_checkbox": "使用 Lingva 备用",
     "lingva_desc": "当所有 Google 路径都被封锁时，作为最后手段尝试第三方 Lingva 服务器。",
+    "browser_impersonation_checkbox": "以类似 Chrome 的方式请求 Google",
+    "browser_impersonation_desc": "使用 Chrome 的 TLS 指纹向 Google 发送请求，可能减少 HTTP 429 封锁。如果在您的网络中请求失败，请关闭。",
     "aggressive_retry_checkbox": "对未被翻译的行再试一次其他线路",
     "aggressive_retry_desc": "对原样返回的行改用另一组 Google 端点重新请求。较慢，但能减少未翻译的行。",
     "proxy_card_title": "代理池",

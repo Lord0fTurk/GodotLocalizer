@@ -35,7 +35,7 @@ def self_check() -> int:
 
     problems: list[str] = []
     for module in ("PyQt6.QtQml", "PyQt6.QtQuick", "cryptography.hazmat.primitives.ciphers", "fontTools.ttLib",
-                   "src.cli", "src.core.pipeline.orchestrator", "src.backend.app_backend"):
+                   "src.cli", "src.core.pipeline.orchestrator", "src.backend.app_backend", "curl_cffi"):
         try:
             __import__(module)
         except Exception as exc:

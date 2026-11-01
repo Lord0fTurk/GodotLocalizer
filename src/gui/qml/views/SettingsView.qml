@@ -669,6 +669,7 @@ ScrollView {
                 }
                 SettingSwitch { key: "use_multi_endpoint"; label: root.t("settings.multi_endpoint_checkbox"); description: root.t("settings.multi_endpoint_desc") }
                 SettingSwitch { key: "lingva_fallback"; label: root.t("settings.lingva_checkbox"); description: root.t("settings.lingva_desc") }
+                SettingSwitch { key: "browser_impersonation"; label: root.t("settings.browser_impersonation_checkbox"); description: root.t("settings.browser_impersonation_desc") }
                 SettingSwitch { key: "aggressive_retry"; label: root.t("settings.aggressive_retry_checkbox"); description: root.t("settings.aggressive_retry_desc") }
             }
 

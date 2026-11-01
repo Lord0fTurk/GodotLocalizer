@@ -30,7 +30,7 @@ ApplicationWindow {
         return (localeManager && localeManager.currentLanguage, localeManager ? localeManager.t(key) : "");
     }
 
-    title: "GodotLocalizer — " + window.t("dashboard.title") + " (v" + (appBackend ? appBackend.version : "0.1.0") + ")"
+    title: "GodotLocalizer — " + window.t("dashboard.title") + " (v" + (appBackend ? appBackend.version : "0.2.0") + ")"
     color: Theme.canvas
 
     Material.theme: Theme.isDark ? Material.Dark : Material.Light
@@ -137,7 +137,7 @@ ApplicationWindow {
                                 }
 
                                 Text {
-                                    text: "v" + (appBackend ? appBackend.version : "0.1.0")
+                                    text: "v" + (appBackend ? appBackend.version : "0.2.0")
                                     font.pixelSize: 10
                                     font.bold: true
                                     color: clrAccent

@@ -2,7 +2,7 @@
 
 import json
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from typing import Any
 
 from src.harvesters.base import HarvestedEntry, StringSourceType
@@ -215,30 +215,44 @@ class DialogicParser:
         except json.JSONDecodeError:
             return entries
 
-        def _walk(node: Any, path_prefix: str) -> None:
-            if isinstance(node, dict):
-                for k, v in node.items():
-                    sub_path = f"{path_prefix}.{k}" if path_prefix else k
-                    if k in fields and isinstance(v, str) and v.strip():
-                        entries.append(
-                            HarvestedEntry(
-                                key=f"{source_file}::{sub_path}",
-                                source_text=v.strip(),
-                                source_file=source_file,
-                                source_type=StringSourceType.NARRATIVE,
-                                context=sub_path,
-                                line_number=len(entries) + 1,
-                                metadata={"json_path": sub_path},
-                            )
-                        )
-                    else:
-                        _walk(v, sub_path)
-            elif isinstance(node, list):
-                for i, item in enumerate(node):
-                    _walk(item, f"{path_prefix}[{i}]")
-
-        _walk(data, "")
+        for _container, _slot, path, text in cls._json_text_slots(data, "", fields):
+            entries.append(
+                HarvestedEntry(
+                    key=f"{source_file}::{path}",
+                    source_text=text.strip(),
+                    source_file=source_file,
+                    source_type=StringSourceType.NARRATIVE,
+                    context=path,
+                    line_number=len(entries) + 1,
+                    metadata={"json_path": path},
+                )
+            )
         return entries
+
+    @classmethod
+    def _json_text_slots(
+        cls, node: Any, path: str, fields: frozenset[str], in_field: bool = False
+    ) -> Iterator[tuple[Any, Any, str, str]]:
+        """Yields (container, key or index, json path, text) for every translatable string.
+
+        A string is translatable when its key is a text field, or when it is an item of a list stored
+        under such a field (``"lines": ["Hello there", ...]``).
+        """
+        if isinstance(node, dict):
+            children: Iterable[tuple[Any, Any, bool]] = ((k, v, k in fields) for k, v in node.items())
+            join = lambda k: f"{path}.{k}" if path else str(k)  # noqa: E731
+        elif isinstance(node, list):
+            children = ((i, v, in_field) for i, v in enumerate(node))
+            join = lambda i: f"{path}[{i}]"  # noqa: E731
+        else:
+            return
+        for slot, value, is_text in children:
+            child_path = join(slot)
+            if isinstance(value, str):
+                if is_text and value.strip():
+                    yield node, slot, child_path, value
+            else:
+                yield from cls._json_text_slots(value, child_path, fields, is_text)
 
     @classmethod
     def apply_generic_json_translations(
@@ -255,18 +269,8 @@ class DialogicParser:
         except json.JSONDecodeError:
             return original_content
 
-        def _walk_replace(node: Any, path_prefix: str) -> None:
-            if isinstance(node, dict):
-                for k, v in list(node.items()):
-                    sub_path = f"{path_prefix}.{k}" if path_prefix else k
-                    key = f"{source_file}::{sub_path}"
-                    if k in fields and isinstance(v, str) and key in translations:
-                        node[k] = translations[key]
-                    else:
-                        _walk_replace(v, sub_path)
-            elif isinstance(node, list):
-                for i, item in enumerate(node):
-                    _walk_replace(item, f"{path_prefix}[{i}]")
-
-        _walk_replace(data, "")
+        for container, slot, path, _text in list(cls._json_text_slots(data, "", fields)):
+            translated = translations.get(f"{source_file}::{path}")
+            if translated:
+                container[slot] = translated
         return json.dumps(data, indent=4, ensure_ascii=False)

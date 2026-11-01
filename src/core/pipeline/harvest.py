@@ -10,7 +10,21 @@ from src.core.binary.optimized_translation import rebuild, to_runtime_payload
 from src.core.binary.rsrc import RSRCError, parse_rsrc
 from src.core.pck.reader import PCKReader
 from src.harvesters.base import HarvestedEntry, StringSourceType
-from src.harvesters.binary_harvester import OPTIMIZED_TYPES, harvest_binary_resource, parse_translation_resource
+from src.harvesters.binary_harvester import (
+    OPTIMIZED_TYPES,
+    harvest_binary_resource,
+    parse_mo_catalog,
+    parse_translation_resource,
+)
+from src.harvesters.data_harvester import (
+    DATA_KINDS,
+    KIND_CFG,
+    KIND_TRES,
+    KIND_TXT,
+    KIND_YAML,
+    apply_data_translations,
+    harvest_data_file,
+)
 from src.harvesters.scene_harvester import SceneHarvester
 from src.harvesters.script_harvester import ScriptHarvester
 from src.harvesters.translation_harvester import TranslationHarvester
@@ -33,9 +47,14 @@ KIND_SCN = "scn"
 KIND_GD = "gd"
 KIND_RES = "res"
 KIND_TRANSLATION = "translation"
+KIND_MO = "mo"
 
-BINARY_KINDS = frozenset({KIND_SCN, KIND_RES, KIND_TRANSLATION})
+BINARY_KINDS = frozenset({KIND_SCN, KIND_RES, KIND_TRANSLATION, KIND_MO})
 MAX_BINARY_BYTES = 32 * 1024 * 1024
+MAX_DATA_BYTES = 16 * 1024 * 1024
+# Licences and engine/export configuration share the plain-text extensions but carry no game text.
+_NON_TEXT_FILES = frozenset({"export_presets.cfg", "override.cfg", "plugin.cfg", "engine.cfg", "requirements.txt", "robots.txt"})
+_NON_TEXT_PREFIXES = ("license", "licence", "copying", "copyright", "readme", "thirdparty", "third_party", "authors")
 
 
 def is_translation_key(text: str) -> bool:
@@ -48,6 +67,8 @@ def classify(res_path: str) -> str | None:
     lowered = res_path.lower()
     if lowered.endswith(".translation"):
         return KIND_TRANSLATION
+    if lowered.endswith(".mo") and "/.godot/" not in lowered:
+        return KIND_MO
     if lowered.endswith(".gd"):
         return KIND_GD
     if lowered.endswith(".scn"):
@@ -68,6 +89,24 @@ def classify(res_path: str) -> str | None:
         return KIND_CSV
     if lowered.endswith(".po") and "/l10n/" not in lowered:
         return KIND_PO
+    return _classify_data_file(lowered)
+
+
+def _classify_data_file(lowered: str) -> str | None:
+    """Plain-text data formats; plugin code and engine/export configuration never hold game text."""
+    if lowered.startswith("res://addons/") or "/.godot/" in lowered:
+        return None
+    name = lowered.rsplit("/", 1)[-1]
+    if name in _NON_TEXT_FILES or name.startswith(_NON_TEXT_PREFIXES):
+        return None
+    if lowered.endswith(".tres"):
+        return KIND_TRES
+    if lowered.endswith(".txt"):
+        return KIND_TXT
+    if lowered.endswith((".yaml", ".yml")):
+        return KIND_YAML
+    if lowered.endswith((".cfg", ".ini")):
+        return KIND_CFG
     return None
 
 
@@ -93,6 +132,8 @@ def _harvest_one(kind: str, text: str, res_path: str, json_keys: tuple[str, ...]
         return TranslationHarvester.harvest_csv(text, res_path)
     if kind == KIND_GD:
         return ScriptHarvester.harvest_gd(text, res_path)
+    if kind in DATA_KINDS:
+        return harvest_data_file(kind, text, res_path)
     return TranslationHarvester.harvest_po(text, res_path)
 
 
@@ -148,6 +189,18 @@ def harvest_compiled_scripts_native(reader: PCKReader, include_addons: bool = Fa
     return entries
 
 
+def _harvest_mo(raw: bytes, res_path: str) -> tuple[str, list[HarvestedEntry]] | None:
+    """A ``.mo`` catalog; when its ``msgid`` is a key (``UI_START``) the ``msgstr`` is the text to translate."""
+    parsed = parse_mo_catalog(raw, res_path)
+    if parsed is None:
+        return None
+    for entry in parsed[1]:
+        msgstr = str(entry.metadata.get("msgstr", ""))
+        if is_translation_key(entry.source_text) and msgstr.strip() and not entry.metadata.get("plural_group"):
+            entry.source_text = msgstr
+    return parsed
+
+
 def pick_source_locale(locales: dict[str, int], source_lang: str = "auto") -> str:
     """Chooses which translation locale holds the game's source text: requested, else English, else largest."""
     if not locales:
@@ -180,15 +233,17 @@ def harvest_pack(
         kind = classify(res_path)
         if kind is None:
             continue
-        if kind in BINARY_KINDS and reader.entries[res_path].size > MAX_BINARY_BYTES:
+        if reader.entries[res_path].size > (MAX_BINARY_BYTES if kind in BINARY_KINDS else MAX_DATA_BYTES):
             continue
         if on_file:
             on_file()
         raw = reader.read_file_bytes(res_path)
         if not raw:
             continue
-        if kind == KIND_TRANSLATION:
-            parsed = parse_translation_resource(raw, res_path)
+        if kind in (KIND_TRANSLATION, KIND_MO):
+            parsed = (
+                parse_translation_resource(raw, res_path) if kind == KIND_TRANSLATION else _harvest_mo(raw, res_path)
+            )
             if parsed:
                 translation_entries.extend(parsed[1])
             continue
@@ -221,6 +276,8 @@ def _rebuild(
         return DialogicParser.apply_d1_json_translations(text, lookup, res_path)
     if kind == KIND_JSON:
         return DialogicParser.apply_generic_json_translations(text, lookup, res_path, json_keys)
+    if kind in DATA_KINDS:
+        return apply_data_translations(kind, text, lookup, res_path)
     return None  # CSV / PO are import sources: Godot reads their .translation output, see runtime table
 
 
@@ -253,13 +310,50 @@ def build_runtime_messages(entries: list[HarvestedEntry]) -> dict[str, str]:
     """
     messages: dict[str, str] = {}
     for entry in entries:
-        if not entry.translation:
-            continue
+        if not entry.translation or entry.metadata.get("plural_form"):
+            continue  # a plural form shares its msgid with the singular and must not overwrite it
         messages[entry.source_text.strip()] = entry.translation
         key = entry.metadata.get("translation_key")
         if entry.source_type is StringSourceType.TRANSLATION and key:
             messages[str(key)] = entry.translation
     return messages
+
+
+_MAX_PLURAL_FORMS = 6  # Arabic has six; Godot only reads the forms its locale rule selects
+
+
+def build_runtime_extras(entries: list[HarvestedEntry]) -> dict[str, list[list[object]]]:
+    """Context-bound and plural messages for the runtime table (Godot 4's ``tr(text, context)`` / ``tr_n``).
+
+    ``contextual`` rows are ``[msgctxt, msgid, translation]``. ``plurals`` rows are ``[msgctxt, msgid, forms]``:
+    only the singular and the plural form are translated, so the plural form fills every further slot, which
+    keeps languages with more plural categories (Russian, Arabic) from falling back to the source text.
+    """
+    contextual: list[list[object]] = []
+    groups: dict[str, dict[str, object]] = {}
+    for entry in entries:
+        if not entry.translation:
+            continue
+        meta = entry.metadata
+        context, msgid = str(meta.get("msgctxt", "")), str(meta.get("translation_key", entry.source_text.strip()))
+        if meta.get("plural_group"):
+            group = groups.setdefault(str(meta["plural_group"]), {"context": context, "msgid": msgid, "forms": {}})
+            group["forms"][int(meta.get("plural_form", 0))] = entry.translation  # type: ignore[index]
+        elif context:
+            contextual.append([context, msgid, entry.translation])
+
+    plurals: list[list[object]] = []
+    for group in groups.values():
+        forms: dict[int, str] = group["forms"]  # type: ignore[assignment]
+        singular, plural = forms.get(0), forms.get(1)
+        if singular is None and plural is None:
+            continue
+        row = [singular or plural or ""]
+        if plural:
+            row += [plural] * (_MAX_PLURAL_FORMS - 1)
+        plurals.append([group["context"], group["msgid"], row])
+    extras: dict[str, list[list[object]]] = {"contextual": contextual, "plurals": plurals}
+    return {name: rows for name, rows in extras.items() if rows}
 
 
 def build_optimized_translations(

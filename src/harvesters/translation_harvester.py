@@ -28,31 +28,47 @@ class TranslationHarvester:
         except StopIteration:
             return entries
 
-        # Find key column and source language column index
+        # Find key column and source language column index. Godot 4.6 adds ?context / ?plural columns and
+        # ``_comment`` columns that are not languages.
         clean_header = [col.strip().lower() for col in header]
         key_idx = 0
-        src_idx = 1
+        context_idx = clean_header.index("?context") if "?context" in clean_header else -1
+        plural_idx = clean_header.index("?plural") if "?plural" in clean_header else -1
+        special = {key_idx, context_idx, plural_idx} | {i for i, c in enumerate(clean_header) if c.startswith("_")}
+        src_idx = next((i for i in range(1, len(clean_header)) if i not in special), 1)
         if source_lang_col.lower() in clean_header:
             src_idx = clean_header.index(source_lang_col.lower())
+        plain_text_keys = context_idx >= 0 or plural_idx >= 0  # these files use the text itself as the key
+
+        def cell(row: list[str], index: int) -> str:
+            return row[index].strip() if 0 <= index < len(row) else ""
 
         for line_num, row in enumerate(reader, start=2):
-            if not row or len(row) <= key_idx:
-                continue
-            key_id = row[key_idx].strip()
-            if not key_id:
-                continue
+            key_id = cell(row, key_idx)
+            if not key_id or key_id.lower() == "?pluralrule":
+                continue  # blank key = continuation row of a plural block; ?pluralrule = a rule, not a message
 
-            src_text = row[src_idx].strip() if len(row) > src_idx else key_id
-            entries.append(
+            src_text = cell(row, src_idx) or (key_id if plain_text_keys else "")
+            context, plural_text = cell(row, context_idx), cell(row, plural_idx)
+            base = f"{source_file}::{context}\x04{key_id}" if context else f"{source_file}::{key_id}"
+            metadata: dict[str, object] = {"translation_key": key_id, "header": clean_header}
+            if context:
+                metadata["msgctxt"] = context
+            forms = [(base, src_text, {})]
+            if plural_text:
+                metadata["plural_group"] = base
+                forms = [(base, src_text, {"plural_form": 0}), (f"{base}#plural", plural_text, {"plural_form": 1})]
+            entries.extend(
                 HarvestedEntry(
-                    key=f"{source_file}::{key_id}",
-                    source_text=src_text,
+                    key=key,
+                    source_text=text,
                     source_file=source_file,
                     source_type=StringSourceType.TRANSLATION,
                     context=f"CSV ID: {key_id}",
                     line_number=line_num,
-                    metadata={"translation_key": key_id, "header": clean_header},
+                    metadata={**metadata, **extra},
                 )
+                for key, text, extra in forms
             )
 
         return entries
@@ -123,17 +139,32 @@ class TranslationHarvester:
         metadata: dict[str, object] = {"format": "po", "translation_key": msgid, "fuzzy": fuzzy}
         if ctx:
             metadata["msgctxt"] = ctx
-        if "msgid_plural" in block:
-            metadata["msgid_plural"] = block["msgid_plural"]
+        plural = block.get("msgid_plural", "")
+        key = f"{source_file}::L{line_num}::{label[:32]}"
+        if plural:
+            metadata["msgid_plural"] = plural
+            metadata["plural_group"] = key
         out.append(
             HarvestedEntry(
-                key=f"{source_file}::L{line_num}::{label[:32]}",
+                key=key,
                 source_text=msgid,
                 source_file=source_file,
                 source_type=StringSourceType.TRANSLATION,
                 context=f"Gettext msgid ({ctx})" if ctx else "Gettext msgid",
                 line_number=line_num,
                 translation=block.get("msgstr", block.get("msgstr[0]", "")),
-                metadata=metadata,
+                metadata={**metadata, **({"plural_form": 0} if plural else {})},
             )
         )
+        if plural:  # the plural form is its own string to translate; the pair is rebuilt as one tr_n() message
+            out.append(
+                HarvestedEntry(
+                    key=f"{key}#plural",
+                    source_text=plural,
+                    source_file=source_file,
+                    source_type=StringSourceType.TRANSLATION,
+                    context=f"Gettext msgid_plural ({ctx})" if ctx else "Gettext msgid_plural",
+                    line_number=line_num,
+                    metadata={**metadata, "plural_form": 1},
+                )
+            )

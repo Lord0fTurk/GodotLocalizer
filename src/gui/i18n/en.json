@@ -279,6 +279,8 @@
     "multi_endpoint_desc": "Spreads load across 13 Google domains; when off only translate.googleapis.com is used.",
     "lingva_checkbox": "Use the Lingva fallback",
     "lingva_desc": "Tries third-party Lingva servers as a last resort when every Google route is blocked.",
+    "browser_impersonation_checkbox": "Chrome-like requests to Google",
+    "browser_impersonation_desc": "Sends Google requests with a Chrome TLS fingerprint, which can reduce HTTP 429 blocks. Turn it off if requests fail on your network.",
     "aggressive_retry_checkbox": "Get a second opinion for lines returned untranslated",
     "aggressive_retry_desc": "Re-asks a different Google endpoint family for lines echoed back unchanged. Slower, but reduces untranslated lines.",
     "proxy_card_title": "Proxy Pool",

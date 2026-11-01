@@ -266,6 +266,8 @@
     "multi_endpoint_desc": "13 の Google ドメインに負荷を分散します。オフ時は translate.googleapis.com のみ使用。",
     "lingva_checkbox": "Lingva フォールバックを使う",
     "lingva_desc": "Google の経路がすべて塞がれたとき、最後の手段として第三者の Lingva サーバーを試します。",
+    "browser_impersonation_checkbox": "Google へ Chrome 風のリクエスト",
+    "browser_impersonation_desc": "Chrome の TLS フィンガープリントで Google にリクエストを送り、HTTP 429 のブロックを減らせる場合があります。ネットワークで失敗する場合はオフにしてください。",
     "aggressive_retry_checkbox": "未翻訳で戻った行を別経路で再翻訳",
     "aggressive_retry_desc": "そのまま戻った行を別の Google エンドポイント系統に再依頼します。遅くなりますが未翻訳行が減ります。",
     "proxy_card_title": "プロキシプール",

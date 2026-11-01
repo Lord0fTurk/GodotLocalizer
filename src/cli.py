@@ -13,11 +13,12 @@ import argparse
 import sys
 from pathlib import Path
 
-from src.core.external.gdre import find_gdre
+from src.core.external.gdre import find_gdre, managed_install_root
+from src.core.external.gdre_download import download_and_install, fetch_latest_release
 from src.core.langpack import find_language_root, remove_packs
 from src.core.pck.crypto import PCKEncryptionError
 from src.core.pck.reader import PCKReader
-from src.core.pipeline.analysis import count_unreadable_scripts, find_json_key_candidates
+from src.core.pipeline.analysis import count_unreadable_scripts, find_json_key_candidates, find_unscanned_text_files
 from src.core.pipeline.harvest import parse_json_keys
 from src.core.pipeline.orchestrator import GodotTranslationPipeline, NothingToTranslateError
 from src.core.progress import ProgressEvent
@@ -28,8 +29,8 @@ from src.patcher.package import export_package, install_package, patch_status
 from src.utils.config import ConfigManager
 from src.version import __version__
 
-COMMANDS = ("inspect", "translate", "status", "export", "install", "revert")
-EXIT_OK, EXIT_ERROR, EXIT_NOTHING, EXIT_KEY = 0, 1, 3, 4
+COMMANDS = ("inspect", "translate", "status", "export", "install", "revert", "gdre-install")
+EXIT_OK, EXIT_ERROR, EXIT_USAGE, EXIT_NOTHING, EXIT_KEY = 0, 1, 2, 3, 4
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -55,6 +56,9 @@ def build_parser() -> argparse.ArgumentParser:
     translate.add_argument("--gdre", default="", help="path to gdre_tools (optional)")
     translate.add_argument("--font", default="", help="fallback font (.ttf/.otf) to ship with the patch")
     translate.add_argument("--quiet", action="store_true", help="no progress lines")
+
+    gdre = sub.add_parser("gdre-install", help="download GDRE Tools (reads old compiled scripts); asks before downloading")
+    gdre.add_argument("--yes", action="store_true", help="confirm the download shown by this command")
 
     for name, text in (("status", "is the game patched?"), ("revert", "remove the patch from the game folder")):
         game_arg(sub.add_parser(name, help=text))
@@ -100,7 +104,9 @@ def _inspect(args: argparse.Namespace) -> int:
     print(f"Patch          : {'yes, ' + status.locale if status.patched else 'no'}{' - game updated since' if status.game_updated else ''}")
     if find_language_root(profile.game_dir) is not None:
         print("Language packs : the game has its own (external/mods/lang_*); a new pack will be written there")
-    print(f"Old scripts    : {legacy}" + ("  (GDRE Tools needed)" if legacy and not find_gdre(pipeline.gdre_path) else ""))
+    print(f"Old scripts    : {legacy}" + ("  (GDRE Tools needed: run 'gdre-install')" if legacy and not find_gdre(pipeline.gdre_path) else ""))
+    for group in find_unscanned_text_files(reader)[:10]:
+        print(f"Not scanned    : {group.files} '{group.extension}' file(s) hold text, e.g. {group.sample_path}: {group.sample_text[:50]!r}")
     if candidates:
         print("JSON fields with text (+ = recommended; add them with --json-keys):")
         for c in candidates[:10]:
@@ -125,6 +131,24 @@ def _translate(args: argparse.Namespace) -> int:
 def _progress(event: ProgressEvent) -> None:
     total = event.total or 100
     print(f"[{int(100 * event.current / total):3d}%] {event.key}", file=sys.stderr)
+
+
+def _gdre_install(args: argparse.Namespace) -> int:
+    existing = find_gdre(str(ConfigManager().get("gdre_path", "") or ""))
+    if existing is not None:
+        print(f"GDRE Tools is already available: {existing}")
+        return EXIT_OK
+    release = fetch_latest_release()
+    print(f"GDRE Tools {release.tag} ({release.license}): {release.asset_name}, {release.size / 1048576:.1f} MB")
+    print(f"Source  : {release.url}\nSHA-256 : {release.sha256}")
+    if not args.yes:
+        print("Nothing was downloaded. Repeat with --yes to download and install it.", file=sys.stderr)
+        return EXIT_USAGE
+    executable = download_and_install(release, managed_install_root())
+    config = ConfigManager()
+    config.set("gdre_path", str(executable))
+    print(f"Installed: {executable}")
+    return EXIT_OK
 
 
 def _status(args: argparse.Namespace) -> int:
@@ -160,7 +184,7 @@ def _revert(args: argparse.Namespace) -> int:
 
 _HANDLERS = {
     "inspect": _inspect, "translate": _translate, "status": _status, "export": _export, "install": _install,
-    "revert": _revert,
+    "revert": _revert, "gdre-install": _gdre_install,
 }
 
 

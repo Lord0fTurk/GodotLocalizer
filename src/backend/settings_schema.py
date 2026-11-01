@@ -41,6 +41,7 @@ SETTING_SPECS: dict[str, SettingSpec] = {
     "max_chars_per_request": _int(500, 20000),
     "use_multi_endpoint": _BOOL,
     "lingva_fallback": _BOOL,
+    "browser_impersonation": _BOOL,
     "aggressive_retry": _BOOL,
     "proxy_enabled": _BOOL,
     "proxy_list": _TEXT,

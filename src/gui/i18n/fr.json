@@ -266,6 +266,8 @@
     "multi_endpoint_desc": "Répartit la charge sur 13 domaines Google ; désactivé = uniquement translate.googleapis.com.",
     "lingva_checkbox": "Utiliser le secours Lingva",
     "lingva_desc": "Essaie en dernier recours des serveurs Lingva tiers quand toutes les routes Google sont bloquées.",
+    "browser_impersonation_checkbox": "Requêtes Google façon Chrome",
+    "browser_impersonation_desc": "Envoie les requêtes à Google avec l'empreinte TLS de Chrome, ce qui peut réduire les blocages HTTP 429. Désactivez-le si les requêtes échouent sur votre réseau.",
     "aggressive_retry_checkbox": "Second avis pour les lignes renvoyées non traduites",
     "aggressive_retry_desc": "Interroge une autre famille de points d'accès Google pour les lignes renvoyées à l'identique. Plus lent, mais moins de lignes non traduites.",
     "proxy_card_title": "Pool de proxys",

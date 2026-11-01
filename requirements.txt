@@ -11,6 +11,7 @@ fonttools>=4.62.0
 
 # HTTP client of the web translation engines (Google, Bing, DeepL, LibreTranslate)
 requests>=2.32.0
+curl-cffi>=0.14.0
 
 # Zstandard: compressed resources and compiled scripts of Godot 4.3+ (built into Python 3.14+)
 zstandard>=0.23.0; python_version < "3.14"

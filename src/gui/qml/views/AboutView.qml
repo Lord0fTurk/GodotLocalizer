@@ -76,7 +76,7 @@ ScrollView {
 
                     Rectangle { width: 6; height: 6; radius: 3; color: Theme.accentSolid }
                     Label {
-                        property string ver: appBackend ? appBackend.version : "0.1.0"
+                        property string ver: appBackend ? appBackend.version : "0.2.0"
                         text: root.t("about.edition").replace("{version}", ver)
                         font.pixelSize: 11
                         font.bold: true

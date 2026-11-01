@@ -266,6 +266,8 @@
     "multi_endpoint_desc": "Распределяет нагрузку по 13 доменам Google; выкл. — только translate.googleapis.com.",
     "lingva_checkbox": "Использовать резерв Lingva",
     "lingva_desc": "В крайнем случае пробует сторонние серверы Lingva, когда все пути Google заблокированы.",
+    "browser_impersonation_checkbox": "Запросы к Google как в Chrome",
+    "browser_impersonation_desc": "Отправляет запросы к Google с TLS-отпечатком Chrome, что может уменьшить блокировки HTTP 429. Отключите, если запросы не проходят в вашей сети.",
     "aggressive_retry_checkbox": "Повторно переводить строки, вернувшиеся без перевода",
     "aggressive_retry_desc": "Повторно запрашивает другую группу конечных точек Google для строк, вернувшихся без изменений. Медленнее, но непереведённых строк меньше.",
     "proxy_card_title": "Пул прокси",

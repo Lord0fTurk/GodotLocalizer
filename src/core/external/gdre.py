@@ -3,7 +3,7 @@
 Exported games usually ship scripts as ``.gdc`` bytecode, which this project cannot read itself.
 When the user points the app at a GDRE Tools executable, it is run headless in "recover scripts only"
 mode against the game package and the decompiled ``.gd`` sources are fed to the script harvester.
-GDRE is never bundled or downloaded by the application.
+GDRE is never bundled; the optional, consent-based download lives in ``gdre_download``.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ import tempfile
 from pathlib import Path
 
 from src.utils.logger import logger
+from src.utils.paths import get_data_dir
 
 DEFAULT_TIMEOUT_SECONDS = 900
 _EXECUTABLE_NAMES = ("gdre_tools", "gdre_tools.exe", "gdre_tools.x86_64")
@@ -25,9 +26,25 @@ class GdreError(RuntimeError):
     """GDRE Tools failed or produced no usable output."""
 
 
+def managed_install_root() -> Path:
+    """Folder the app installs GDRE Tools into (one sub-folder per release tag)."""
+    return get_data_dir() / "tools" / "gdre"
+
+
+def _managed_install() -> str:
+    """Newest release the app installed earlier, so a lost setting or a CLI run still finds it."""
+    root = managed_install_root()
+    if not root.is_dir():
+        return ""
+    for folder in sorted((p for p in root.iterdir() if p.is_dir()), key=lambda p: p.stat().st_mtime, reverse=True):
+        if any((folder / name).is_file() for name in _EXECUTABLE_NAMES):
+            return str(folder)
+    return ""
+
+
 def find_gdre(configured: str = "") -> Path | None:
-    """Resolves the GDRE executable: explicit setting, ``GDRE_TOOLS`` env var, then ``PATH``."""
-    candidates: list[str] = [configured.strip(), os.environ.get(ENV_VAR, "").strip()]
+    """Resolves the GDRE executable: explicit setting, ``GDRE_TOOLS`` env var, app-managed install, then ``PATH``."""
+    candidates: list[str] = [configured.strip(), os.environ.get(ENV_VAR, "").strip(), _managed_install()]
     for raw in candidates:
         if not raw:
             continue

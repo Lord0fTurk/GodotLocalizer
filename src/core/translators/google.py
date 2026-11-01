@@ -20,6 +20,7 @@ import time
 from dataclasses import replace
 
 from src.core.constants import GOOGLE_SEPARATOR_MAX_CHARS, GOOGLE_SEPARATOR_MAX_ITEMS
+from src.core.languages import canonical_from_google, engine_language_code
 from src.core.syntax_guard import TOKEN_RE, UnitySyntaxGuard
 from src.core.translators.base import (
     BaseTranslator,
@@ -28,6 +29,7 @@ from src.core.translators.base import (
 )
 from src.core.translators.google_transport import (
     GET_SAFE_CHARS,
+    PRIMARY_CLIENTS,
     GoogleTransport,
     RateLimitedError,
     TransportError,
@@ -106,6 +108,7 @@ class GoogleTranslator(BaseTranslator):
         self.transport = transport or GoogleTransport(self.settings, proxies)
         self._alternate_rescues = 0
         self._rescue_lock = threading.Lock()
+        self._clients = list(PRIMARY_CLIENTS)  # first = the client id that worked last
 
     # ── public API ───────────────────────────────────────────────────────
 
@@ -160,15 +163,39 @@ class GoogleTranslator(BaseTranslator):
         self._recover_integrity(texts, restored, bulk, source_lang, target_lang)
         if self.settings.aggressive_retry:
             self._retry_unchanged(texts, restored, source_lang, target_lang)
-        return [
+        results = [
             self._result(t, restored[i], source_lang, target_lang)
             if restored[i] is not None
             else self._result(t, t, source_lang, target_lang, error=errors.get(i, "Google translation failed"))
             for i, t in enumerate(texts)
         ]
+        return self._fill_from_fallback(texts, results, source_lang, target_lang)
+
+    def _fill_from_fallback(
+        self, texts: list[str], results: list[TranslationResult], sl: str, tl: str
+    ) -> list[TranslationResult]:
+        """Hand lines Google could not translate to the fallback engine (Bing) when one is set."""
+        failed = [i for i, r in enumerate(results) if not r.success]
+        if not failed or self.fallback_translator is None:
+            return results
+        logger.warning("Google: %d item(s) failed; delegating to %s", len(failed),
+                       type(self.fallback_translator).__name__)
+        fb_sl = engine_language_code(canonical_from_google(sl), "bing", source=True)
+        fb_tl = engine_language_code(canonical_from_google(tl), "bing")
+        try:
+            fallback = self.fallback_translator.translate_batch([texts[i] for i in failed], fb_sl, fb_tl)
+        except Exception as exc:  # the fallback is best-effort; its own errors are logged
+            logger.warning("Google fallback failed: %s", exc)
+            return results
+        for index, fb in zip(failed, fallback):
+            if fb.success and fb.translated_text.strip():
+                results[index] = self._result(texts[index], fb.translated_text, sl, tl)
+        return results
 
     def close(self) -> None:
         self.transport.close()
+        if self.fallback_translator is not None:
+            self.fallback_translator.close()
 
     # ── batch helpers ────────────────────────────────────────────────────
 
@@ -363,7 +390,7 @@ class GoogleTranslator(BaseTranslator):
                 self.router.wait_for_cooldown()
             endpoint = self.router.get_endpoint() if self.settings.use_multi_endpoint else self.router.endpoints[0]
             try:
-                out = self.transport.primary(endpoint, text, sl, tl)
+                out = self._primary_with_clients(endpoint, text, sl, tl)
             except RateLimitedError as exc:
                 self.router.on_rate_limited()
                 self.router.mark_mirror_failure(endpoint)
@@ -382,6 +409,31 @@ class GoogleTranslator(BaseTranslator):
         if isinstance(last_error, RateLimitedError):
             raise last_error
         raise TransportError(str(last_error))
+
+    def _primary_with_clients(self, endpoint: str, text: str, sl: str, tl: str) -> str:
+        """Try each client id on one mirror; only when all are refused is the IP considered flagged."""
+        with self._rescue_lock:
+            clients = list(self._clients)
+        refused: RateLimitedError | None = None
+        for client in clients:
+            try:
+                out = self.transport.primary(endpoint, text, sl, tl, client=client)
+            except RateLimitedError as exc:
+                refused = exc
+                continue
+            if client != clients[0]:
+                self._remember_client(client)
+            return out
+        raise refused or RateLimitedError(endpoint)
+
+    def _remember_client(self, client: str) -> None:
+        with self._rescue_lock:
+            previous = self._clients[0]
+            if previous == client:
+                return
+            self._clients.remove(client)
+            self._clients.insert(0, client)
+        logger.warning("Google refused client=%s here (HTTP 429); using client=%s from now on.", previous, client)
 
     @staticmethod
     def _result(

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from src.core.binary.mo import MoError, parse_mo
 from src.core.binary.optimized_translation import OptimizedTranslationError, read_elements
 from src.core.binary.rsrc import RSRCError, RSRCFile, parse_rsrc
 from src.harvesters.base import HarvestedEntry, StringSourceType
@@ -160,25 +161,59 @@ def _optimized_entries(props: dict[str, Any], locale: str, source_file: str) -> 
     return locale, entries, {"hash_table": table, "bucket_table": buckets, "strings": blob}
 
 
-def _plain_entries(messages: Any, locale: str, source_file: str) -> list[HarvestedEntry]:
-    pairs: list[tuple[str, str]] = []
-    if isinstance(messages, dict):
-        for key, value in messages.items():
-            msgid = key[-1] if isinstance(key, (tuple, list)) and key else key  # (context, msgid) keys
-            text = value[0] if isinstance(value, list) and value else value
-            if isinstance(msgid, str) and isinstance(text, str):
-                pairs.append((msgid, text))
-    elif isinstance(messages, list):
-        pairs = [(str(a), str(b)) for a, b in zip(messages[0::2], messages[1::2])]
+def message_entries(
+    source_file: str, locale: str, msgctxt: str, msgid: str, forms: list[str], **meta: Any
+) -> list[HarvestedEntry]:
+    """Entries of one catalog message: its first form and, for plural messages, the last (plural) form.
+
+    The message is looked up by ``msgid`` (and ``msgctxt``), so both are kept in the metadata for the runtime table;
+    the two forms of a plural message share a ``plural_group``.
+    """
+    base = f"{source_file}::{msgctxt}\x04{msgid}" if msgctxt else f"{source_file}::{msgid}"
+    shared: dict[str, Any] = {"binary": True, "locale": locale, "translation_key": msgid, **meta}
+    if msgctxt:
+        shared["msgctxt"] = msgctxt
+    plural = len(forms) > 1 and bool(forms[-1].strip())
+    picked = [(base, forms[0], 0)] + ([(f"{base}#plural", forms[-1], 1)] if plural else [])
     return [
         HarvestedEntry(
-            key=f"{source_file}::{msgid}",
+            key=key,
             source_text=text,
             source_file=source_file,
             source_type=StringSourceType.TRANSLATION,
-            context=f"Translation ({locale}) ID: {msgid}",
-            metadata={"binary": True, "locale": locale, "translation_key": msgid},
+            context=f"Translation ({locale}) ID: {msgid}" + (" (plural)" if form else ""),
+            metadata={**shared, **({"plural_group": base, "plural_form": form} if plural else {})},
         )
-        for msgid, text in pairs
+        for key, text, form in picked
         if text.strip()
     ]
+
+
+def _plain_entries(messages: Any, locale: str, source_file: str) -> list[HarvestedEntry]:
+    found: list[tuple[str, str, list[str]]] = []  # (msgctxt, msgid, forms)
+    if isinstance(messages, dict):
+        for key, value in messages.items():
+            is_pair = isinstance(key, (tuple, list)) and bool(key)  # Godot 4.4+ stores (context, msgid) keys
+            msgctxt, msgid = (str(key[0]) if len(key) > 1 else "", key[-1]) if is_pair else ("", key)
+            forms = [str(v) for v in value] if isinstance(value, list) else [value]
+            if isinstance(msgid, str) and forms and all(isinstance(f, str) for f in forms):
+                found.append((msgctxt, msgid, forms))
+    elif isinstance(messages, list):
+        found = [("", str(a), [str(b)]) for a, b in zip(messages[0::2], messages[1::2])]
+    return [e for msgctxt, msgid, forms in found for e in message_entries(source_file, locale, msgctxt, msgid, forms)]
+
+
+def parse_mo_catalog(data: bytes, source_file: str) -> tuple[str, list[HarvestedEntry]] | None:
+    """(locale, entries) of a compiled gettext ``.mo`` catalog; the source text is the ``msgid`` (or the
+    ``msgstr`` when the ``msgid`` is a key such as ``UI_START``), None for unreadable files."""
+    try:
+        catalog = parse_mo(data)
+    except MoError:
+        return None
+    locale = catalog.locale or "en"
+    entries: list[HarvestedEntry] = []
+    for message in catalog.messages:
+        forms = [message.msgid, message.msgid_plural] if message.msgid_plural else [message.msgid]
+        entries.extend(message_entries(source_file, locale, message.context, message.msgid, forms,
+                                       format="mo", msgstr=message.msgstrs[0] if message.msgstrs else ""))
+    return locale, entries

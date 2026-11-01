@@ -65,7 +65,7 @@ class FakeGoogleTransport:
         self.primary_texts: list[str] = []
         self.batchexecute_batches: list[list[str]] = []
 
-    def primary(self, endpoint: str, text: str, source_lang: str, target_lang: str) -> str:
+    def primary(self, endpoint: str, text: str, source_lang: str, target_lang: str, client: str = "gtx") -> str:
         self.primary_texts.append(text)
         if self.primary_mode == "soft_ban":
             raise TransportError("Empty payload (soft ban)")

@@ -38,6 +38,7 @@ class NetworkSettings:
     max_chars_per_request: int = 5000
     use_multi_endpoint: bool = True
     lingva_fallback: bool = True
+    browser_impersonation: bool = True
     aggressive_retry: bool = False
     proxies: tuple[str, ...] = field(default_factory=tuple)
 
@@ -55,6 +56,7 @@ class NetworkSettings:
             max_chars_per_request=int(_clamp(config.get("max_chars_per_request", 5000), 5000, 500, 20000)),
             use_multi_endpoint=bool(config.get("use_multi_endpoint", True)),
             lingva_fallback=bool(config.get("lingva_fallback", True)),
+            browser_impersonation=bool(config.get("browser_impersonation", True)),
             aggressive_retry=bool(config.get("aggressive_retry", False)),
             proxies=proxies,
         )

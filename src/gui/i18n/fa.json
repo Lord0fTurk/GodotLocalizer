@@ -266,6 +266,8 @@
     "multi_endpoint_desc": "بار را بین ۱۳ دامنه Google پخش می‌کند؛ در حالت خاموش فقط translate.googleapis.com استفاده می‌شود.",
     "lingva_checkbox": "استفاده از جایگزین Lingva",
     "lingva_desc": "وقتی همه مسیرهای Google مسدود باشند، به‌عنوان آخرین راه سرورهای شخص ثالث Lingva را امتحان می‌کند.",
+    "browser_impersonation_checkbox": "درخواست به Google مانند Chrome",
+    "browser_impersonation_desc": "درخواست‌های Google را با اثر انگشت TLS مرورگر Chrome می‌فرستد که می‌تواند مسدودی‌های HTTP 429 را کم کند. اگر درخواست‌ها در شبکه شما شکست خورد، آن را خاموش کنید.",
     "aggressive_retry_checkbox": "نظر دوم برای خطوطی که ترجمه‌نشده برگشته‌اند",
     "aggressive_retry_desc": "خطوطی را که بدون تغییر برگشته‌اند دوباره از خانواده دیگری از نقاط پایانی Google می‌پرسد. کندتر است اما خطوط ترجمه‌نشده را کم می‌کند.",
     "proxy_card_title": "مجموعه پروکسی",

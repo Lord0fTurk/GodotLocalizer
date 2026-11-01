@@ -279,6 +279,8 @@
     "multi_endpoint_desc": "Yükü 13 Google alan adına dağıtır; kapalıyken yalnızca translate.googleapis.com kullanılır.",
     "lingva_checkbox": "Lingva yedeğini kullan",
     "lingva_desc": "Tüm Google yolları tıkandığında üçüncü taraf Lingva sunucularını son çare olarak dener.",
+    "browser_impersonation_checkbox": "Google'a Chrome gibi istek gönder",
+    "browser_impersonation_desc": "Google isteklerini Chrome'un TLS parmak iziyle gönderir; HTTP 429 engellerini azaltabilir. Ağında istekler başarısız olursa kapat.",
     "aggressive_retry_checkbox": "Çevrilmeden dönen satırlar için ikinci görüş al",
     "aggressive_retry_desc": "Google'ın aynen geri döndürdüğü satırları başka bir uç nokta ailesine tekrar sorar. Daha yavaştır, ama özel adlar dışında kalan çevrilmemiş satırları azaltır.",
     "proxy_card_title": "Proxy Havuzu",

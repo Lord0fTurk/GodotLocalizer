@@ -134,7 +134,7 @@ class TranslationManager:
 
     def _build_translator(self, engine: TranslationEngine) -> BaseTranslator:
         builders: dict[TranslationEngine, Callable[[], BaseTranslator]] = {
-            TranslationEngine.GOOGLE: lambda: GoogleTranslator(self.network, proxies=self.proxies),
+            TranslationEngine.GOOGLE: self._build_google,
             TranslationEngine.BING: self._build_bing,
             TranslationEngine.OPENAI: lambda: OpenAITranslator(
                 api_key=self._text("openai_key"),
@@ -168,6 +168,12 @@ class TranslationManager:
             # Never fall back to the pseudo engine silently: it would ship fake text.
             raise ValueError(f"Translation engine not implemented: {engine.value}")
         return builders[engine]()
+
+    def _build_google(self) -> BaseTranslator:
+        """Google with Bing as fallback for lines every Google route refused (e.g. an IP block)."""
+        google = GoogleTranslator(self.network, proxies=self.proxies)
+        google.set_fallback(BingTranslator(self.network, proxies=self.proxies))
+        return google
 
     def _build_bing(self) -> BaseTranslator:
         """Bing with Google as fallback: independent request families fail independently."""

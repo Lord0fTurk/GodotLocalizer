@@ -17,6 +17,9 @@ class ScriptHarvester:
     # One string literal, single or double quoted, with backslash escapes.
     STRING_LITERAL_PATTERN = re.compile(r'"((?:[^"\\]|\\.)*)"|\'((?:[^\'\\]|\\.)*)\'')
 
+    # tr("Text"), atr(...), tr_n("One", "Many", n): the opening quote of the message literal(s), whichever quote style.
+    TR_CALL_PATTERN = re.compile(r"""(?<![\w])(?:a?tr|a?tr_n)\(\s*(["'])""")
+
     # Lines whose literals are identifiers or paths, never player-facing text.
     NON_TEXT_LINE_PATTERN = re.compile(
         r"^\s*(?:extends|class_name|const\s+\w+\s*=\s*(?:preload|load)|@\w+|signal|match|when)\b"
@@ -48,13 +51,20 @@ class ScriptHarvester:
         entries: list[HarvestedEntry] = []
         for line_num, line in enumerate(script_content.splitlines(), start=1):
             code_part = cls._strip_comment(line)
-            if not code_part.strip() or cls.NON_TEXT_LINE_PATTERN.search(code_part):
+            if not code_part.strip():
+                continue
+            # The developer marked these as player text, so no shape rule or line filter applies to them.
+            marked = {m.start(1) for m in cls.TR_CALL_PATTERN.finditer(code_part)}
+            skip_line = bool(cls.NON_TEXT_LINE_PATTERN.search(code_part))
+            if skip_line and not marked:
                 continue
 
             for match in cls.STRING_LITERAL_PATTERN.finditer(code_part):
                 raw_text = match.group(1) if match.group(1) is not None else match.group(2)
                 cleaned = cls._unescape(raw_text)
-                if cls._is_translatable_candidate(cleaned):
+                if (match.start() in marked and cleaned.strip()) or (
+                    not skip_line and cls._is_translatable_candidate(cleaned)
+                ):
                     entries.append(
                         HarvestedEntry(
                             key=f"{source_file}::L{line_num}::{cleaned[:24]}",
@@ -114,8 +124,8 @@ class ScriptHarvester:
             return False
         if cls.LOG_PREFIX_PATTERN.match(trimmed):
             return False
-        if " " in trimmed and trimmed[0].islower() and trimmed == trimmed.lower() and not trimmed.endswith(("!", "?")):
-            return False  # lowercase prose without any capital is a developer log message, not UI text
+        if " " in trimmed and trimmed[0].islower() and trimmed == trimmed.lower() and not trimmed.endswith(("!", "?", ".", "…")):
+            return False  # lowercase prose without a capital or closing punctuation is a developer log message
         if re.fullmatch(r"[A-Za-z0-9_./:%\-]+", trimmed) and " " not in trimmed:
             # Single identifier-like token: only keep capitalised words ("Continue", "Quit") as UI labels.
             return trimmed[0].isupper() and trimmed[1:].islower() and trimmed.isalpha()

@@ -18,6 +18,7 @@ from src.backend.log_buffer import LogBuffer
 from src.backend.preflight import analyse_package, merge_json_keys
 from src.backend.settings_schema import coerce_setting
 from src.backend.summaries import completion_summary, font_report, release_payload
+from src.core.external.gdre import managed_install_root
 from src.core.external.gdre_download import GdreDownloadError, GdreRelease, download_and_install, fetch_latest_release
 from src.core.langpack import find_language_root, pack_code, remove_packs
 from src.core.languages import engine_supports, languages_for_engine
@@ -36,7 +37,7 @@ from src.patcher.overlay_patcher import OverlayPatcher
 from src.patcher.package import export_package, install_package, patch_status
 from src.utils.config import ConfigManager
 from src.utils.logger import mask_secrets
-from src.utils.paths import get_data_dir, get_logs_dir, get_patches_dir, resource_path
+from src.utils.paths import get_logs_dir, get_patches_dir, resource_path
 from src.version import __version__
 
 logger = logging.getLogger(__name__)
@@ -684,7 +685,7 @@ class AppBackend(QObject):
 
         def _install() -> None:
             try:
-                exe = download_and_install(release, get_data_dir() / "tools" / "gdre", self.gdreDownloadProgress.emit)
+                exe = download_and_install(release, managed_install_root(), self.gdreDownloadProgress.emit)
             except GdreDownloadError as exc:
                 self._notify_exception(exc)
                 self.gdreDownloadFinished.emit(False)

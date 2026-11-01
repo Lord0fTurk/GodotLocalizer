@@ -71,6 +71,7 @@ class OverlayPatcher:
         patch_pck_name: str = DEFAULT_PATCH_PCK,
         runtime_translations: dict[str, str] | None = None,
         optimized_translations: list[dict[str, object]] | None = None,
+        extra_translations: dict[str, list[list[object]]] | None = None,
     ) -> bool:
         """Packages localized files into the patch PCK and deploys override.cfg.
 
@@ -83,6 +84,7 @@ class OverlayPatcher:
                 bootstrap registers with ``TranslationServer`` at startup.
             optimized_translations: Rebuilt ``OptimizedTranslation`` tables (see ``pipeline.harvest``)
                 that the bootstrap re-creates at runtime.
+            extra_translations: Context-bound and plural messages (``build_runtime_extras``).
 
         Returns:
             True on successful patch deployment. On failure everything written is rolled back.
@@ -97,7 +99,7 @@ class OverlayPatcher:
         try:
             bootstrap_bytes = self._write_patch_pck(
                 patch_pck_path, localized_files, target_locale, font_bytes, patch_pck_name, runtime_translations,
-                optimized_translations,
+                optimized_translations, extra_translations,
             )
             # The bootstrap also lives next to the executable: res:// falls back to the disk
             # for files that are not in a mounted pack, which is how the engine finds it on boot.
@@ -124,6 +126,7 @@ class OverlayPatcher:
         patch_pck_name: str,
         runtime_translations: dict[str, str] | None,
         optimized_translations: list[dict[str, object]] | None = None,
+        extra_translations: dict[str, list[list[object]]] | None = None,
     ) -> bytes:
         """Builds the patch PCK and returns the bootstrap script bytes."""
         writer = PCKWriter(
@@ -140,8 +143,10 @@ class OverlayPatcher:
         for res_path, data in localized_files.items():
             writer.add_bytes(res_path, data)
 
-        if runtime_translations or optimized_translations:
-            payload = build_translations_payload(target_locale, runtime_translations or {}, optimized_translations)
+        if runtime_translations or optimized_translations or extra_translations:
+            payload = build_translations_payload(
+                target_locale, runtime_translations or {}, optimized_translations, extra_translations
+            )
             writer.add_bytes(TRANSLATIONS_RES_PATH, payload)
 
         generate = (

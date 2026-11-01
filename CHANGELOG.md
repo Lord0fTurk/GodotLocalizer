@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.0] - 2026-11-01
+
+### Added
+- **Plain-text game data is now harvested and rewritten:** `.txt` (one sentence per line), YAML, `.cfg`/`.ini` and text `.tres` resources, including string arrays such as `lines = ["…", "…"]`. Licences, readmes, `addons/` and engine/export configuration are skipped.
+- **`inspect` lists text the harvest does not read:** files of unknown formats (`.dat`, `.md`, `.lang`, ...) that hold sentences are reported per extension with a sample line.
+- **`gdre-install` command and automatic GDRE discovery:** the app's own GDRE install is found without any setting; the CLI can install it after showing the release and with `--yes`.
+- **Message contexts and plural forms:** `.translation`, CSV (`?context`, `?plural`, `?pluralrule` and `_comment` columns, Godot 4.6+) and PO catalogs keep `msgctxt` and translate the plural form too. The runtime table registers them with Godot 4's `add_message(…, context)` / `add_plural_message()`, so `tr("Shop", "Main Menu")` and `tr_n()` are localized (the plural form fills the extra plural slots of languages with more than two forms). Godot 3 has no contexts and uses the plain lookup.
+- **Compiled gettext catalogs (`.mo`):** read like `.translation` files (text from `msgid`, or from `msgstr` when the `msgid` is a key).
+- **Google client-id rotation:** since September 2026 Google answers HTTP 429 to `client=gtx` in some regions and networks while `client=at` and `client=dict-chrome-ex` still work with the identical reply format. A 429 on a mirror now tries `gtx`, `at` and `dict-chrome-ex` in turn, remembers the one that works (logged once) and counts the IP as blocked only when all three are refused, instead of opening the 300 s cooldown for a regional `gtx` block.
+- **Google → Bing fallback:** lines that every Google route refused are handed to Bing (language codes converted), mirroring the existing Bing → Google fallback. Without a fallback they are reported as failed as before.
+- **Chrome TLS fingerprint (`curl-cffi`):** Google requests are sent with `impersonate="chrome"` through one `curl_cffi` session per thread, and the impersonated Chrome sends its own matching `User-Agent`. It is optional: if the package is missing or fails to import the engine uses `requests` as before. New setting **Chrome-like requests to Google** (`browser_impersonation`, on by default, 12 languages) turns it off if requests fail on a network. `build.py` collects `curl_cffi` (`_cffi_backend` hidden import) and `--self-check` imports it, so build the release in an environment where `curl-cffi` is installed.
+- On the plain `requests` path the `User-Agent` is now chosen once per transport instead of per request.
+
+### Changed
+- **GDScript text:** strings inside `tr()`, `atr()` and `tr_n()` are always harvested, even in lines that look like code or logging. Lowercase sentences that end in `.` or `…` are no longer mistaken for log messages.
+
+### Fixed
+- **JSON string lists:** items of a list stored under a text field (`"lines": ["…", "…"]`) were never harvested or written back, although the pre-flight analysis suggested such fields.
+
+### Notes
+- None of this could be measured against a real block (no blocked network here): the client-id switch and the fallback are covered with fake transports, and real translations and language detection through both transports were checked.
+
+---
+
 ## [0.1.0] - 2026-10-31
 
 First public pre-release (beta). Tested on Godot 3.6, 4.4, 4.5, 4.6 and 4.7 and on real exported Godot 4.6 games; Godot 4.0–4.3, macOS and Android packages are not verified yet.

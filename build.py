@@ -40,7 +40,7 @@ def get_hidden_imports() -> list[str]:
     """Modules PyInstaller cannot see: QML engine plugins are loaded by name at runtime."""
     modules = (
         "PyQt6.QtCore", "PyQt6.QtGui", "PyQt6.QtQml", "PyQt6.QtQuick", "PyQt6.QtQuickControls2",
-        "sqlite3", "urllib.request", "zipfile", "xml.etree.ElementTree",
+        "sqlite3", "urllib.request", "zipfile", "xml.etree.ElementTree", "_cffi_backend",
     )
     args: list[str] = []
     for module in modules:
@@ -50,7 +50,7 @@ def get_hidden_imports() -> list[str]:
 
 def get_collect_args() -> list[str]:
     """fontTools loads its table classes lazily by tag; the optional keyring backends likewise."""
-    return ["--collect-submodules", "fontTools", "--collect-submodules", "src"]
+    return ["--collect-submodules", "fontTools", "--collect-submodules", "src", "--collect-all", "curl_cffi"]
 
 
 def build_binary(root_dir: Path, onefile: bool = False, console: bool = False) -> int:

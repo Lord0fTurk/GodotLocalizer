@@ -13,6 +13,7 @@ Drop in a game, pick your language, press **Translate**, then **Launch Game**.
 ![Godot](https://img.shields.io/badge/Godot-3.x%20%7C%204.x-478CBF?style=for-the-badge&logo=godotengine&logoColor=white)
 ![UI](https://img.shields.io/badge/UI-PyQt6%20%2F%20QML-41CD52?style=for-the-badge&logo=qt&logoColor=white)
 ![Platform](https://img.shields.io/badge/Windows%20%7C%20Linux%20experimental-lightgrey?style=for-the-badge)
+[![Patreon](https://img.shields.io/badge/Support-Patreon-ff424d?style=for-the-badge&logo=patreon&logoColor=white)](https://www.patreon.com/cw/LordOfTurk)
 
 **12 interface languages · 3 themes · 8 translation engines · zero game files modified**
 
@@ -91,11 +92,12 @@ This is an early release and every game is different. If you have a few Godot ga
 <td width="50%" valign="top">
 
 **📚 Translation tables**
-- `.csv`, `.po`, `.translation`
+- `.csv`, `.po`, compiled `.mo`, `.translation`
+- Message **contexts** and **plural forms** (`tr(text, context)`, `tr_n()`, CSV `?context` / `?plural` columns)
 - `OptimizedTranslation` (smaz-compressed, hashed keys — rebuilt for you)
 
 **🎬 Scenes & resources**
-- Text scenes: `.tscn`, `.tres`
+- Text scenes and resources: `.tscn`, `.tres` (including custom resources with string arrays)
 - Binary scenes & resources: `.scn`, `.res` (node-aware)
 - UI properties such as `Label.text`, `Button.text`, `RichTextLabel` BBCode, popup items, tab titles
 
@@ -103,7 +105,7 @@ This is an early release and every game is different. If you have a few Godot ga
 <td width="50%" valign="top">
 
 **📜 Scripts**
-- GDScript string literals
+- GDScript string literals — anything inside `tr()` / `atr()` / `tr_n()` is always taken
 - **Compiled `.gdc` scripts** — read natively on Godot 4.3+, with optional GDRE Tools for older bytecode
 
 **💬 Narrative plugins**
@@ -111,7 +113,9 @@ This is an early release and every game is different. If you have a few Godot ga
 - **Dialogue Manager** (Nathan Hoad)
 
 **🗂️ Game data**
-- JSON data files, with smart detection of which fields hold player text
+- JSON data files, with smart detection of which fields hold player text (including lists of strings)
+- Plain-text data: `.txt` (one sentence per line), YAML, `.cfg` / `.ini` — only sentences are taken, licences and engine configuration are skipped
+- `inspect` also lists files in unknown formats that hold text, so nothing hides silently
 - External `lang_*` language packs (your language shows up in the game's own language menu)
 
 </td>
@@ -151,8 +155,8 @@ A **glossary** keeps character names and game terms consistent across the whole 
 
 Get the latest build from the [Releases page](../../releases):
 
-- **Windows:** `GodotLocalizer-vX.Y.Z-windows-x64.zip` → unzip → run `GodotLocalizer.exe`. No Python needed.
-- **Linux / Steam Deck (experimental):** `GodotLocalizer-vX.Y.Z-linux-x64.tar.gz` → extract → run `./GodotLocalizer`.
+- **Windows:** `GodotLocalizer-X.Y.Z-windows-x64.zip` → unzip → run `GodotLocalizer.exe`. No Python needed.
+- **Linux / Steam Deck (experimental):** `GodotLocalizer-X.Y.Z-linux-x64.tar.gz` → extract → run `./GodotLocalizer`.
 
 ### Option 2 — Run from source
 
@@ -171,7 +175,7 @@ Optional extras:
 |---|---|
 | `pip install keyring` | Stores API keys and the PCK key in Windows Credential Manager / Keychain / Secret Service instead of `config.json` |
 | `pip install arabic-reshaper python-bidi` | Right-to-left pre-shaping for **Godot 3** games (Arabic, Persian, Hebrew) |
-| [GDRE Tools](https://github.com/GDRETools/gdsdecomp) | Only for compiled scripts of Godot 4.0–4.2. Settings → *GDRE Tools* can download it **after you confirm** file name, size and checksum — nothing is bundled |
+| [GDRE Tools](https://github.com/GDRETools/gdsdecomp) | Only for compiled scripts of Godot 4.0–4.2. Settings → *GDRE Tools* (or `python run.py gdre-install --yes`) can download it **after you confirm** file name, size and checksum — nothing is bundled. An installed copy is found automatically |
 
 ---
 
@@ -195,6 +199,7 @@ Everything also runs without the GUI (from a source checkout, as below):
 
 ```powershell
 python run.py inspect   "D:\Games\MyGame"
+python run.py gdre-install          # only if inspect says old scripts need GDRE Tools; shows the download, add --yes to confirm
 python run.py translate "D:\Games\MyGame" --lang tr --engine google --json-keys card_text
 python run.py export    "D:\Games\MyGame" -o MyGame-tr.zip
 python run.py install   MyGame-tr.zip "D:\Games\MyGame"
@@ -258,6 +263,8 @@ Architecture, binary layouts and contribution rules live in [AGENTS.md](AGENTS.m
 ## 🤝 Contributing
 
 Bug reports, game compatibility reports, new UI translations (`src/gui/i18n/*.json`) and pull requests are all welcome. If a game doesn't work, open an issue with the game name, Godot version (shown by `python run.py inspect`) and the log output.
+
+GodotLocalizer is free and open source. If it saves you time, you can support its development on [Patreon](https://www.patreon.com/cw/LordOfTurk) 💖
 
 ---
 

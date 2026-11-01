@@ -78,13 +78,16 @@ class TestPoHarvester(unittest.TestCase):
 
     def test_context_plural_fuzzy_and_continuations(self) -> None:
         entries = TranslationHarvester.harvest_po(self.PO, "res://g.po")
-        self.assertEqual([e.source_text for e in entries], ["Open", "Open", "%d apple", "Long text"])
+        self.assertEqual([e.source_text for e in entries], ["Open", "Open", "%d apple", "%d apples", "Long text"])
         self.assertTrue(entries[0].metadata["fuzzy"])
         self.assertFalse(entries[1].metadata["fuzzy"])
         self.assertEqual(entries[1].metadata["msgctxt"], "door")
         self.assertNotEqual(entries[0].key, entries[1].key)
         self.assertEqual(entries[2].metadata["msgid_plural"], "%d apples")
         self.assertEqual(entries[2].translation, "%d elma")
+        self.assertEqual(entries[3].key, entries[2].key + "#plural")
+        self.assertEqual(entries[3].metadata["plural_group"], entries[2].key)
+        self.assertEqual((entries[2].metadata["plural_form"], entries[3].metadata["plural_form"]), (0, 1))
 
 
 class TestDialogueManagerEdgeCases(unittest.TestCase):

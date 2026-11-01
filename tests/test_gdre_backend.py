@@ -4,6 +4,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from src.core.external.gdre import GdreBackend, GdreError, find_gdre
 from src.harvesters.script_harvester import ScriptHarvester
@@ -23,6 +24,16 @@ class TestGdreBackend(unittest.TestCase):
 
     def test_missing_executable_is_not_found(self) -> None:
         self.assertIsNone(find_gdre("C:/definitely/not/here/gdre_tools.exe") if not os.environ.get("GDRE_TOOLS") else None)
+
+    def test_app_installed_release_is_found_without_any_setting(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"GDRE_TOOLS": ""}), mock.patch(
+            "src.core.external.gdre.managed_install_root", return_value=Path(tmp)
+        ), mock.patch("src.core.external.gdre.shutil.which", return_value=None):
+            self.assertIsNone(find_gdre())
+            (Path(tmp) / "old").mkdir()
+            (Path(tmp) / "old" / "gdre_tools.exe").write_bytes(b"x")
+            (Path(tmp) / "empty").mkdir()
+            self.assertEqual(find_gdre(), (Path(tmp) / "old" / "gdre_tools.exe").resolve())
 
     def test_log_lines_are_not_harvested(self) -> None:
         code = 'print("INFO: loaded chat")\nvar a = "ERROR: could not load"\nvar b = "Return to menu"\n'

@@ -17,6 +17,7 @@ from src.core.pck.reader import CustomPckSignatureError, PCKReader
 from src.core.pipeline.harvest import (
     build_localized_files,
     build_optimized_translations,
+    build_runtime_extras,
     build_runtime_messages,
     harvest_compiled_scripts_native,
     harvest_decompiled_scripts,
@@ -449,5 +450,6 @@ class GodotTranslationPipeline:
             font_bytes=self._load_font(target_lang),
             runtime_translations=build_runtime_messages(entries),
             optimized_translations=build_optimized_translations(reader, entries, target_lang),
+            extra_translations=build_runtime_extras(entries),
         )
         write_sidecar(game_dir, target_lang, profile.major_version >= 4, reader.engine_version, Path(profile.game_path))

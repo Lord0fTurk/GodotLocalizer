@@ -266,6 +266,8 @@
     "multi_endpoint_desc": "13개 Google 도메인에 부하를 분산합니다. 끄면 translate.googleapis.com만 사용합니다.",
     "lingva_checkbox": "Lingva 대체 사용",
     "lingva_desc": "모든 Google 경로가 막혔을 때 최후 수단으로 타사 Lingva 서버를 시도합니다.",
+    "browser_impersonation_checkbox": "Google에 Chrome처럼 요청",
+    "browser_impersonation_desc": "Chrome의 TLS 지문으로 Google에 요청을 보내 HTTP 429 차단을 줄일 수 있습니다. 네트워크에서 요청이 실패하면 끄세요.",
     "aggressive_retry_checkbox": "번역되지 않고 돌아온 줄을 다른 경로로 재시도",
     "aggressive_retry_desc": "그대로 돌아온 줄을 다른 Google 엔드포인트 계열에 다시 요청합니다. 느리지만 미번역 줄이 줄어듭니다.",
     "proxy_card_title": "프록시 풀",

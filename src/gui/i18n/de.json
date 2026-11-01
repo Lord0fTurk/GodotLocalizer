@@ -266,6 +266,8 @@
     "multi_endpoint_desc": "Verteilt die Last auf 13 Google-Domains; aus = nur translate.googleapis.com.",
     "lingva_checkbox": "Lingva-Ausweichdienst nutzen",
     "lingva_desc": "Versucht als letzten Ausweg Lingva-Server von Drittanbietern, wenn alle Google-Wege blockiert sind.",
+    "browser_impersonation_checkbox": "Chrome-ähnliche Anfragen an Google",
+    "browser_impersonation_desc": "Sendet Google-Anfragen mit dem TLS-Fingerabdruck von Chrome, was HTTP-429-Sperren verringern kann. Ausschalten, falls Anfragen in Ihrem Netz fehlschlagen.",
     "aggressive_retry_checkbox": "Zweite Meinung für unübersetzt zurückgegebene Zeilen",
     "aggressive_retry_desc": "Fragt bei unverändert zurückgegebenen Zeilen eine andere Google-Endpunktfamilie. Langsamer, aber weniger unübersetzte Zeilen.",
     "proxy_card_title": "Proxy-Pool",

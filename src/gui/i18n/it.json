@@ -266,6 +266,8 @@
     "multi_endpoint_desc": "Distribuisce il carico su 13 domini Google; disattivato usa solo translate.googleapis.com.",
     "lingva_checkbox": "Usa il fallback Lingva",
     "lingva_desc": "Prova server Lingva di terze parti come ultima risorsa quando tutte le vie Google sono bloccate.",
+    "browser_impersonation_checkbox": "Richieste a Google come Chrome",
+    "browser_impersonation_desc": "Invia le richieste a Google con l'impronta TLS di Chrome, il che può ridurre i blocchi HTTP 429. Disattivalo se le richieste falliscono sulla tua rete.",
     "aggressive_retry_checkbox": "Secondo parere per le righe restituite non tradotte",
     "aggressive_retry_desc": "Richiede a un'altra famiglia di endpoint Google le righe restituite invariate. Più lento, ma meno righe non tradotte.",
     "proxy_card_title": "Pool di proxy",

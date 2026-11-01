@@ -80,6 +80,7 @@ _BING_CODES: dict[str, str] = {
     "zh-CN": "zh-Hans", "zh-TW": "zh-Hant", "pt-BR": "pt", "no": "nb", "tl": "fil",
     "sr": "sr-Cyrl", "mn": "mn-Cyrl", "ku": "kmr", "ckb": "ku", "mni-Mtei": "mni",
 }
+_GOOGLE_TO_CANONICAL: dict[str, str] = {v: k for k, v in _GOOGLE_CODES.items()}
 _BING_TO_CANONICAL: dict[str, str] = {v: k for k, v in _BING_CODES.items()}
 # DeepL supports a fixed subset; target codes need regional variants for EN/PT/ZH.
 _DEEPL_TARGETS: dict[str, str] = {
@@ -115,6 +116,11 @@ def engine_supports(engine_id: str, code: str) -> bool:
     if engine_id == "deepl":
         return code in _DEEPL_TARGETS
     return get_language(code) is not None or engine_id not in ("google", "bing")
+
+
+def canonical_from_google(code: str) -> str:
+    """Convert a Google dialect code back to its canonical code."""
+    return _GOOGLE_TO_CANONICAL.get(code, code)
 
 
 def canonical_from_bing(code: str) -> str:
